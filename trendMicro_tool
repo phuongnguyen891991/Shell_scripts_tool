@@ -1,0 +1,209 @@
+#!/bin/sh
+
+#BIN_FILE=`/usr/sbin/tm_dd_client -i`
+
+INPUT_TIMER=2400
+TIC=`date +%S`
+ELAP_TIMER=0
+
+MAC1="B8:27:EB:8C:2A:8C"
+MAC2="40:88:05:80:90:EC"
+LINK_SERVER="/tmp/tm_dev_detect_integ/db"
+TIME_INTERVAL="50"
+TIME_SLEEP=1
+
+TEXT_FILE_ADD="/tmp/var/config/text_add"
+TEXT_FILE_GET="/tmp/var/config/text_get"
+TEXT_FILE_SET="/tmp/var/config/text_set"
+TEXT_FILE_DEL="/tmp/var/config/text_del"
+TEXT_FILE_REFRESH="/tmp/var/config/text_refresh"
+TMP_LIST="/tmp/var/config/list_of_mac.txt"
+
+get_all_mac()
+{
+    echo "Getting MAC in list ....!"
+    if [ ! -f "$TMP_LIST" ] ; then
+        touch $TMP_LIST
+    fi
+    echo "`/tmp/shn/bin/sample.bin -a "get_all_user" | grep mac | sed 's/mac  : //g'`" >> $TMP_LIST
+}
+
+timer_count_down()
+{
+    while [ "$ELAP_TIMER" -le "$INPUT_TIMER" ] ; do
+        TOC=`date +%S`
+        ELAP_TIMER=`expr $TOC - $TIC`
+    done
+    echo "EXIT SHELL SCRIPTS ... !"
+    exit 0
+}
+
+cmd_test()
+{
+if [ -n "$1" ] ; then
+    #if [ -n "$2" ] && [ "mac2" == $2 ] ; then
+    #    MAC="$MAC2"
+    #else
+    #    MAC="$MAC1"
+    #fi
+    if [ -n "$2" ] ; then
+        MAC="$2"
+    else
+        echo "Unknown MAC, using MAC default to test....!"
+        MAC="$MAC1"
+        echo "--->>> $MAC"
+    fi
+
+    CMD_ADD_DEVICE="{ \"cmd\":\"add_dev_track\", \"data\":{ \"macAddr\":\"$MAC\", \"interval\":"$TIME_INTERVAL" }}"
+    CMD_GET_INFO="{ \"cmd\":\"get_dev_info\", \"data\":{ \"macAddr\":\"$MAC\" } }"
+    CMD_SET_INFO="{ \"cmd\":\"set_dev_info\", \"data\":{ \"macAddr\":\"$MAC\", \"hostname\": \"Name_example\", \"ipv4\":\"11\", \"dev_name_id\":\"22\",\"os_vendor_id\":\"33\", \"dev_family_id\":\"44\", \"os_name_id\": \"55\", \"os_class_id\": \"66\" } }"
+    CMD_DEL_DEVICE="{ \"cmd\":\"del_dev_track\", \"data\":{ \"macAddr\":\"$MAC\" } }"
+    CMD_REFRESH_INFO="{ \"cmd\":\"refresh_dev_info\", \"data\":{ \"macAddr\":\"$MAC\" } }"
+
+    case $1 in
+        "add")
+            touch $TEXT_FILE_ADD
+            if [ -f $TEXT_FILE_ADD ] ; then
+                echo $CMD_ADD_DEVICE > $TEXT_FILE_ADD
+            fi
+
+            /usr/sbin/tm_dd_client -i $TEXT_FILE_ADD
+            if  [ $? != 0 ] ; then
+                echo "Run adding command failed ...!"
+            fi
+
+            FILE_LOCATE="`echo "$MAC" | sed 's/\://g'`"
+
+            if [ -z "$LINK_SERVER/$FILE_LOCATE" ] ; then
+                echo "Fail to store data into $LINK_SERVER"
+            fi
+            ;;
+
+        "get")
+            touch $TEXT_FILE_GET
+            if [ -f $TEXT_FILE_GET ] ; then
+                echo $CMD_GET_INFO > $TEXT_FILE_GET
+            fi
+
+            /usr/sbin/tm_dd_client -i $TEXT_FILE_GET
+            if  [ $? != 0 ] ; then
+                echo "Run getting command failed ...!"
+            fi
+            ;;
+
+        "set")
+            touch $TEXT_FILE_SET
+            if [ -f $TEXT_FILE_SET ] ; then
+                echo $CMD_SET_INFO > $TEXT_FILE_SET
+            fi
+
+            /usr/sbin/tm_dd_client -i $TEXT_FILE_SET
+            if  [ $? != 0 ] ; then
+                echo "Run setting command failed ...!"
+            fi
+            echo "`cat $LINK_SERVER/$FILE_LOCATE`"
+            ;;
+
+        "del")
+            touch $TEXT_FILE_DEL
+            if [ -f $TEXT_FILE_DEL ] ; then
+                echo $CMD_DEL_DEVICE > $TEXT_FILE_DEL
+            fi
+
+            /usr/sbin/tm_dd_client -i $TEXT_FILE_DEL
+            if  [ $? != 0 ] ; then
+                echo "Run deleting command failed ...!"
+            fi
+            ;;
+
+        "ref")
+            touch $TEXT_FILE_REFRESH
+            if [ -f $TEXT_FILE_REFRESH ] ; then
+                echo $CMD_REFRESH_INFO > $TEXT_FILE_REFRESH
+            fi
+
+            if [ -f $LINK_SERVER ] ; then
+                echo > $LINK_SERVER
+                if [ -n "`cat $LINK_SERVER`" ] ; then
+                    echo "Faild to erase content in file..!"
+                fi
+            fi
+
+            /usr/sbin/tm_dd_client -i $TEXT_FILE_REFRESH
+            if  [ $? != 0 ] ; then
+                echo "Run Update command failed ...!"
+            fi
+            echo "`cat $LINK_SERVER/$FILE_LOCATE`"
+            ;;
+        *)
+            echo "Unknow command .!"
+            ;;
+    esac
+            rm -f $FILE
+fi
+}
+
+
+# TESTING
+while true 
+do
+   trap '{ echo "Hey, you pressed Ctrl-C.  Time to quit." ; exit 0; }' INT
+   if [ "-s" == "$1" ] ; then
+       if [ -z "$2" ] ; then
+           echo "please enter argurment.!"
+           break
+       fi
+       cmd_test $2 $3
+       break
+
+   elif [ "all" == "$1" ] ; then
+       get_all_mac
+       count=0
+
+       while IFS= read -r mac_from_list
+       do
+           echo ""
+           count=`expr $count + 1`
+           echo "$count : MAC for testing: $mac_from_list"
+
+           cmd_test add $mac_from_list
+           sleep $TIME_SLEEP
+
+           cmd_test get $mac_from_list
+           sleep $TIME_SLEEP
+
+           cmd_test "set" $mac_from_list
+           sleep $TIME_SLEEP
+
+           cmd_test ref $mac_from_list
+           sleep $TIME_SLEEP
+
+           cmd_test del $mac_from_list
+           sleep $TIME_SLEEP
+
+       done < "$TMP_LIST"
+
+#        cmd_test add mac2 
+#        sleep $TIME_SLEEP
+#
+#        cmd_test get mac2
+#        sleep $TIME_SLEEP
+#
+#        cmd_test ref mac2
+#        sleep $TIME_SLEEP
+#
+#        cmd_test del mac2
+#        sleep $TIME_SLEEP
+   elif [ "clean" == "$1" ] ; then
+       rm -f $TMP_LIST
+       rm -f $TEXT_FILE_ADD
+       rm -f $TEXT_FILE_GET
+       rm -f $TEXT_FILE_DEL
+       rm -f $TEXT_FILE_REFRESH
+       rm -f "$LINK_SERVER/*"
+       break
+   else
+       echo "Invalid argurment .!"
+       break
+   fi
+done

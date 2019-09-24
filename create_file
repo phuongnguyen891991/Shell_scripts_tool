@@ -1,0 +1,28 @@
+#!/bin/sh
+DIR_FILE="./arp_tmp"
+touch $DIR_FILE
+
+echo $DIR_FILE
+
+if [ -f "$ARP_TEMP" ] ; then
+    /sbin/arp -n > $ARP_TEMP
+fi
+
+get_id_from_mac()
+{
+    if [ -z "$1" ] ; then
+        DEV_ID="`/usr/sbin/devicedb_client -c getDeviceByMac $1`"
+    fi  
+}
+
+    while read LINE
+    do
+        MAC="`echo $LINE | cut -f4 -d " "`"
+        echo "MAC: $MAC"
+        IP="`echo $LINE | cut -f2 -d " " | sed '^.//' | sed '.$//'`"
+        echo "IP: $IP"
+    done < $ARP_TEMP
+
+
+rm -rf $ARP_TEMP
+

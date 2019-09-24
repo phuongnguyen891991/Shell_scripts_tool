@@ -1,0 +1,74 @@
+#!/bin/sh
+
+
+APP="/tmp/shn/bin/sample.bin -a"
+
+GET_ALL="get_all_user"
+GET_DETAIL="get_user_detail"
+
+GET_ALL_APP="get_all_app"
+GET_ALL_APP_CLEAR="get_all_app_clear"
+GET_APP_PATROL="get_app_patrol"
+
+GET_USER_DOMAIN="get_user_domain"
+GET_USER_DOMAIN_CLEAR="get_user_domain_clear"
+
+GET_WRS_URL="get_wrs_url"
+
+GET_WBL_LOG="get_wbl_log"
+GET_QOS_USER_INFO="get_qos_user_info"
+GET_QOS_APP_INFO="get_qos_app_info"
+
+GET_APP_TIME="get_app_time"
+GET_PATROL_TQ="get_patrol_tq"
+
+GET_PATROL_TQ_LOG="get_patrol_tq_log"
+GET_VP="get_vp"
+
+#------------------------------------
+
+echo " __ get_all_user __"
+$APP $GET_ALL
+
+echo " __ get_user_detail __"
+$APP $GET_DETAIL
+
+echo " __ get_all_app __"
+$APP $GET_ALL_APP
+
+echo " __ get_all_app_clear __"
+$APP $GET_ALL_APP_CLEAR
+
+echo " __ get_app_patrol __"
+$APP $GET_APP_PATROL
+
+echo " __ get_user_domain __"
+$APP $GET_USER_DOMAIN
+
+echo " __ get_user_domain_clear __"
+$APP $GET_USER_DOMAIN_CLEAR
+
+echo " __ get_wrs_url __"
+$APP $GET_WRS_URL
+
+echo " __ get_wbl_log __"
+$APP $GET_WBL_LOG
+
+echo " __ get_qos_user_info __"
+$APP $GET_QOS_USER_INFO
+
+echo " __ get_qos_app_info __"
+$APP $GET_QOS_APP_INFO
+
+echo " __ get_app_time __"
+$APP $GET_APP_TIME
+
+echo " __ get_patrol_tq __"
+$APP $GET_PATROL_TQ
+
+echo " __ get_patrol_tq_log __"
+$APP $GET_PATROL_TQ_LOG
+
+echo " __ get_vp __"
+$APP $GET_VP
+
