@@ -1,0 +1,341 @@
+#!/bin/sh
+
+echo "----------------------------------------------------------"
+date
+
+DB="/tmp/devicedb/transient.db"
+DB1="/tmp/devicedb/devicedb.db"
+
+INTERFACE_TABLE="t_interface"
+ARP_MACS_TABLE="t_arp_macs"
+WIFI_MACS_TABLE="t_wifi_macs"
+
+ETHERNET_MACS="ethernet_macs"
+WIFI_MACS="wifi_macs"
+ARP="arp"
+
+ETHERNET_PORTS_TABLE="t_ethernet_ports"
+ETHERNET_MACS_TABLE="t_ethernet_macs"
+IPCLIENT_MACS_TABLE="t_ipclient_macs"
+
+DELAY=2
+
+checkall_device_from_dvdb()
+{
+    echo "+++++++ data in t_interface table in transient.db"
+    sqlite3 $DB "select * from $INTERFACE_TABLE"
+    echo ""
+
+    echo "+++++++ data in t_arp_macs table in transient.db"
+    sqlite3 $DB "select * from $ARP_MACS_TABLE"
+    echo ""
+
+    echo "+++++++ data in t_ethernet_macs table in transient.db"
+    sqlite3 $DB "select * from $ETHERNET_MACS_TABLE"
+    echo ""
+
+    echo "+++++++ data in t_ethernet_port table in transient.db"
+    sqlite3 $DB "select * from $ETHERNET_PORTS_TABLE"
+    echo ""
+
+    echo "+++++++ data in t_wifi_macs table in transient.db"
+    sqlite3 $DB "select * from $WIFI_MACS_TABLE"
+    echo ""
+
+    echo "+++++++ data in t_ipclient table in transient.db"
+    sqlite3 $DB "select * from $IPCLIENT_MACS_TABLE"
+    echo ""
+
+    echo "+++++++ data in arp table in devicedb.db"
+    sqlite3 $DB1 "select * from $ARP"
+    echo ""
+
+    echo "+++++++ data in ethernet macs table in devicedb.db"
+    sqlite3 $DB1 "select * from $ETHERNET_MACS"
+    echo ""
+
+    echo "+++++++ data in ethernet wifi macs table in devicedb.db"
+    sqlite3 $DB1 "select * from $WIFI_MACS"
+    echo ""
+}
+
+checking_mac_from_ipneigh()
+{
+    if [ -z $1 ] ; then
+        echo "Invalid input NULL"
+        return
+    fi
+    IP_NEIGH_TMP_FILE="./ip_neigh_tmp_file"
+    if [ ! -f "$IP_NEIGH_TMP_FILE" ]; then
+        touch $IP_NEIGH_TMP_FILE
+    fi
+
+    /bin/ip neigh show > $IP_NEIGH_TMP_FILE
+
+    if [ $1 -le 0 ] ; then
+        n=1
+        while read line
+        do
+            # reading each line
+            NEIGH_MAC="`echo $line | cut -d " " -f $1`"
+            STATUS="`echo $line | cut -d " " -f $1`" # should have +1 to get status
+            echo "neighbor mac address: $NEIGH_MAC - status: $STATUS"
+            n=$((n+1))
+        done < $IP_NEIGH_TMP_FILE
+    fi
+
+    rm $IP_NEIGH_TMP_FILE
+}
+
+get_sysevent()
+{
+    echo "-------- sysevent get wan::intf_detection_status ---------"
+    sysevent get wan::intf_detection_status
+    echo ""
+
+    echo "-------- sysevent get wan::detected_intf ---------"
+    sysevent get wan::detected_intf
+    echo ""
+
+    echo "-------- sysevent get ETH::link_status_changed---------"
+    sysevent get ETH::link_status_changed
+    echo ""
+
+    echo "-------- sysevent get mqttsub::wlansubdev---------"
+    sysevent get mqttsub::wlansubdev
+    echo ""
+
+    echo "-------- sysevent get mqttsub::ethsubdev---------"
+    sysevent get mqttsub::ethsubdev
+    echo ""
+
+    for N_P in 0 1 2 3 4 ; do
+        PORT_STATUS="`sysevent get ETH::port_"$N_P"_status`"
+        echo "eth port $N_P: $PORT_STATUS"
+    done
+}
+
+# para: $1: mac address of device that will checked info in db.
+check_specific_device_by_mac()
+{
+    if [ -n "$1" ] ; then
+        #is_mac="`echo "$1" | sed -n "/^\([0-9A-Z][0-9A-Z]:\)\{5\}[0-9A-Z][0-9A-Z]$/p"`"
+        #if [ -z "$is_mac" ] ; then
+        #    echo "Invalid Mac address, exit"
+        #    return;
+        #else
+            devicedb_client -c getDeviceByMac $1
+        #fi
+    fi
+}
+
+# Parameter:
+# $1: mac address
+# $2:  interface name
+verify_device_from_t_arp_macs()
+{
+    if [ -z "$1" ] || [ -z "$2" ] ; then
+        return;
+    fi
+
+    t_arp_macs_f="./t_arp_macs_file_tmp"
+    if [ ! -f $t_arp_macs_f ] ; then
+        touch $t_arp_macs_f
+    fi
+
+    sqlite3 $DB "select * from $ARP_MACS_TABLE" > $t_arp_macs_f
+    while read line
+    do
+        mac_addr="`echo $line | cut -d '|' -f6`"
+        if [ $1 = $mac_addr ] ; then
+            intf_name="`echo $line | cut -d '|' -f4`"
+            if [ $2 = $intf_name ] ; then
+                echo "  [OK] Matching data from db ($ARP_MACS_TABLE)"
+            else
+                echo "  [FAILED] NOT matching status in devicedb (port: $port_nu - $ARP_MACS_TABLE table)"
+            fi
+        else
+            echo "  [FAILED] Not update into db ($ARP_MACS_TABLE)"
+        fi
+    done < $t_arp_macs_f
+
+    rm -rf $t_arp_macs_f
+}
+
+# parameter:
+# $1 : port num
+# $2 : speed
+verify_device_from_t_ethernet_mac()
+{
+    if [ -z "$1" ] || [ -z "$2" ] ; then
+        return;
+    fi
+    echo "Checking port: $1 - speeds: $2 "
+    t_eth_mac_f="./t_eth_mac_file_tmp"
+    if [ ! -f $t_eth_mac_f ] ; then
+        touch $t_eth_mac_f
+    fi
+
+    sqlite3 $DB "select * from $ETHERNET_MACS_TABLE" > $t_eth_mac_f
+    while read line
+    do
+        mac_add="`echo $line | cut -d '|' -f1`"
+        port_nu="`echo $line | cut -d '|' -f2`"
+        speeds="`echo $line | cut -d '|' -f3`"
+        if [ $1 = $port_nu ] ; then
+            if [ $2 = $speeds ] ; then
+                echo "  [OK] Matching info for mac: $mac_add ($ETHERNET_MACS_TABLE)"
+            else
+                echo "  [FAILED] NOT matching speeds: $mac_add ($ETHERNET_MACS_TABLE)"
+            fi
+            verify_device_from_t_arp_macs "${mac_add}" "eth${port_nu}"
+        else
+            echo "  [FAILED] NOT Update into database ($ETHERNET_MACS_TABLE)"
+        fi
+    done < $t_eth_mac_f
+
+    rm -rf $t_eth_mac_f
+}
+
+# Parameter:
+# $1 : port number connected device
+# $2 : port status of device: up/down
+verif_device_from_t_eth_port()
+{
+    if [ -z "$1" ] || [ -z "$2" ] ; then
+        return;
+    fi
+
+    t_eth_port_f="./t_eth_port_file_tmp"
+    if [ ! -f $t_eth_port_f ] ; then
+        touch $t_eth_port_f
+    fi
+
+    sqlite3 $DB "select * from $ETHERNET_PORTS_TABLE" > $t_eth_port_f
+    while read line
+    do
+        port_nu="`echo $line | cut -d '|' -f1`"
+        if [ $1 = $port_nu ] ; then
+            status="`echo $line | cut -d '|' -f2`"
+            if [ $2 = $status ] ; then
+                speeds="`echo $line | cut -d '|' -f3`"
+                verify_device_from_t_ethernet_mac "${port_nu}" "${speeds}"
+            else
+                echo "  [FAILED] NOT matching status in devicedb (port: $port_nu - $ETHERNET_PORTS_TABLE table)"
+            fi
+        fi
+    done < $t_eth_port_f
+
+    rm -rf $t_eth_port_f
+}
+
+# Create function for matching info as belows:
+#   port number
+#   mac address
+#   interface name
+#   using: ETH::port_"<n>"_status, t_ethernet_macs, t_ethernet_port, t_interface
+verify_matching_info()
+{
+    count_p=0
+    status_int=0
+    while [ $count_p -lt 5 ]
+    do
+        PORT_STATUS="`sysevent get ETH::port_"$count_p"_status`"
+        if [ "up" = $PORT_STATUS ] ; then
+            status_int=1
+            verif_device_from_t_eth_port "${count_p}" "${status_int}"
+        fi
+        count_p=`expr $count_p + 1`
+    done
+}
+
+verify_wan_interface()
+{
+    detected=`sysevent get wan::intf_detection_status`
+    if [ $detected = "DETECTED" ] ; then
+        wan_int=`sysevent get wan::detected_intf`
+        if [ $wan_int = "eth3" ] ; then
+            echo "  [OK] Detected Wan interface."
+        else
+            echo "  [FAILED] WAN interface is not match"
+        fi
+    fi
+
+}
+
+verify_main_service()
+{
+    DEVICEDB_SRV="devicedb"
+    DDD_ARP_SRV="ddd_arp_agent"
+    DDD_ETH_SRV="ddd_ethernet_agent"
+
+    # verify devicedb service
+    state="`ps | grep $DEVICEDB_SRV | grep -v grep`"
+    if [ -z "$state" ] ; then
+        echo "$DEVICEDB_SRV is not start !"
+    fi
+
+    # verify ddd_arp_arp_agent
+    state="`ps | grep $DDD_ARP_SRV | grep -v grep`"
+    if [ -z "$state" ] ; then
+        echo "$DDD_ARP_SRV is not start !"
+    fi
+
+    # verify ddd_ethernet_agent
+    state="`ps | grep $DDD_ETH_SRV | grep -v grep`"
+    if [ -z "$state" ] ; then
+        echo "$DDD_ETH_SRV is not start !"
+    fi
+
+    echo "All service is already, includes: "
+    echo "$DEVICEDB_SRV"
+    echo "$DDD_ARP_SRV"
+    echo "$DDD_ETH_SRV"
+    return 0
+}
+
+helper()
+{
+    echo "Usage: "
+    echo "-m \"<mac address>\"  : Verify mac address in device db."
+    echo "-c                    : List all device in db tables"
+    echo "-s                    : Check for all sysevent that was triggered"
+    echo "-A                    : Run for all"
+    echo "-S                    : Check all need service"
+    echo "-d                    : Check details per port"
+    echo "-h                    : Print usage"
+}
+
+case "$1" in
+    "-c")
+        checkall_device_from_dvdb
+        ;;
+    "-s")
+        get_sysevent
+        ;;
+    "-m")
+        if [ -z "$2" ] ; then
+            return;
+        fi
+        check_specific_device_by_mac "$2"
+        ;;
+    "-d")
+        verify_matching_info
+        ;;
+    "-A")
+        checkall_device_from_dvdb
+
+        get_sysevent
+
+        checking_mac_from_ipneigh
+        ;;
+    "-w")
+        verify_wan_interface
+        ;;
+    "-S")
+        verify_main_service
+        ;;
+    "-h" | *)
+        helper
+        ;;
+esac

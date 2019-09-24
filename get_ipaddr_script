@@ -1,0 +1,55 @@
+#!/bin/sh
+
+echo "----------------------------------------------------------"
+date
+
+DB="/tmp/devicedb/transient.db"
+DB1="/tmp/devicedb/devicedb.db"
+
+INTERFACE_TABLE="t_interface"
+ARP_MACS_TABLE="t_arp_macs"
+WIFI_MACS_TABLE="t_wifi_macs"
+
+ETHERNET_MACS="ethernet_macs"
+WIFI_MACS="wifi_macs"
+ARP="arp"
+
+ETHERNET_PORTS_TABLE="t_ethernet_ports"
+ETHERNET_MACS_TABLE="t_ethernet_macs"
+IPCLIENT_MACS_TABLE="t_ipclient_macs"
+
+echo "+++++++ data in t_interface table in transient.db +++++++"
+sqlite3 $DB "select * from $INTERFACE_TABLE"
+echo ""
+
+echo "+++++++ data in t_arp_macs table in transient.db +++++++"
+sqlite3 $DB "select * from $ARP_MACS_TABLE"
+echo ""
+
+echo "+++++++ data in t_ethernet_macs table in transient.db +++++++"
+sqlite3 $DB "select * from $ETHERNET_MACS_TABLE"
+echo ""
+
+echo "+++++++ data in t_ethernet_port table in transient.db +++++++"
+sqlite3 $DB "select * from $ETHERNET_PORTS_TABLE"
+echo ""
+
+echo "+++++++ data in t_wifi_macs table in transient.db +++++++"
+sqlite3 $DB "select * from $WIFI_MACS_TABLE"
+echo ""
+
+echo "+++++++ data in t_ipclient table in transient.db +++++++"
+sqlite3 $DB "select * from $IPCLIENT_MACS_TABLE"
+echo ""
+
+echo "+++++++ data in arp table in devicedb.db +++++++"
+sqlite3 $DB1 "select * from $ARP"
+echo ""
+
+echo "+++++++ data in ethernet macs table in devicedb.db +++++++"
+sqlite3 $DB1 "select * from $ETHERNET_MACS"
+echo ""
+
+echo "+++++++ data in ethernet wifi macs table in devicedb.db +++++++"
+sqlite3 $DB1 "select * from $WIFI_MACS"
+echo ""

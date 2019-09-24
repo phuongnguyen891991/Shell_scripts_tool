@@ -1,0 +1,21 @@
+#!/bin/sh
+
+echo "-------- sysevent get wan::intf_detection_status ---------"
+sysevent get wan::intf_detection_status 
+echo ""
+
+echo "-------- sysevent get wan::detected_intf ---------"
+sysevent get wan::detected_intf
+echo ""
+
+echo "-------- sysevent get ETH::link_status_changed---------"
+sysevent get ETH::link_status_changed
+echo ""
+
+echo "-------- sysevent get mqttsub::wlansubdev---------"
+sysevent get mqttsub::wlansubdev
+echo ""
+
+echo "-------- sysevent get mqttsub::ethsubdev---------"
+sysevent get mqttsub::ethsubdev
+echo ""
