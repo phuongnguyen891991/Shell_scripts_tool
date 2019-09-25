@@ -139,21 +139,25 @@ verify_device_from_t_arp_macs()
         touch $t_arp_macs_f
     fi
 
+    is_checking=0
     sqlite3 $DB "select * from $ARP_MACS_TABLE" > $t_arp_macs_f
     while read line
     do
         mac_addr="`echo $line | cut -d '|' -f6`"
         if [ $1 = $mac_addr ] ; then
+            echo "  [OK] Matching Mac ($ARP_MACS_TABLE)"
             intf_name="`echo $line | cut -d '|' -f4`"
             if [ $2 = $intf_name ] ; then
-                echo "  [OK] Matching data from db ($ARP_MACS_TABLE)"
+                echo "  [OK] Matching interface name ($ARP_MACS_TABLE)"
+                is_checking=1
             else
                 echo "  [FAILED] NOT matching status in devicedb (port: $port_nu - $ARP_MACS_TABLE table)"
             fi
-        else
-            echo "  [FAILED] Not update into db ($ARP_MACS_TABLE)"
         fi
     done < $t_arp_macs_f
+    if [ $is_checking -eq 0 ] ; then
+        echo "  [FAILED] Not update into database ($ARP_MACS_TABLE)"
+    fi
 
     rm -rf $t_arp_macs_f
 }
@@ -180,13 +184,11 @@ verify_device_from_t_ethernet_mac()
         speeds="`echo $line | cut -d '|' -f3`"
         if [ $1 = $port_nu ] ; then
             if [ $2 = $speeds ] ; then
-                echo "  [OK] Matching info for mac: $mac_add ($ETHERNET_MACS_TABLE)"
+                echo "  [OK] Matching Speeds: $mac_add ($ETHERNET_MACS_TABLE)"
             else
                 echo "  [FAILED] NOT matching speeds: $mac_add ($ETHERNET_MACS_TABLE)"
             fi
-            verify_device_from_t_arp_macs "${mac_add}" "eth${port_nu}"
-        else
-            echo "  [FAILED] NOT Update into database ($ETHERNET_MACS_TABLE)"
+            verify_device_from_t_arp_macs "${mac_add}" "br0"
         fi
     done < $t_eth_mac_f
 
@@ -216,6 +218,7 @@ verif_device_from_t_eth_port()
             if [ $2 = $status ] ; then
                 speeds="`echo $line | cut -d '|' -f3`"
                 verify_device_from_t_ethernet_mac "${port_nu}" "${speeds}"
+                echo ""
             else
                 echo "  [FAILED] NOT matching status in devicedb (port: $port_nu - $ETHERNET_PORTS_TABLE table)"
             fi
