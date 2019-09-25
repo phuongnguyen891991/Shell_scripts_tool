@@ -101,12 +101,8 @@ get_sysevent()
     sysevent get ETH::link_status_changed
     echo ""
 
-    echo "-------- sysevent get mqttsub::wlansubdev---------"
-    sysevent get mqttsub::wlansubdev
-    echo ""
-
-    echo "-------- sysevent get mqttsub::ethsubdev---------"
-    sysevent get mqttsub::ethsubdev
+    echo "-------- sysevent get WIFI::link_status_changed---------"
+    sysevent get WIFI::link_status_changed
     echo ""
 
     for N_P in 0 1 2 3 4 ; do
