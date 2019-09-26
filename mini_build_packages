@@ -1,0 +1,51 @@
+#!/bin/sh
+
+TFTP_SRV="/tftpboot_local/phuong.nguyen"
+BUILD_DIR="`pwd`"
+PK_NAME="prplmesh"
+FW_FILE=""
+
+void_usage()
+{
+    echo "-c    :coppy file to tftp_local"
+    echo "-b    :Clean package, then build"
+}
+
+Search_fw_file()
+{
+    if [ -z `$BUILD_DIR | grep "nodes"`] ; then 
+        echo "Not build dir, please check again"
+        break
+    fi
+
+    FW_FILE="`find ./$BUILD_DIR/nfsroot -name "FW_WHW03*.img"`"
+    if [ -z $FW_FILE ] ; then
+        echo "Could not file FW file"
+        break
+    fi
+
+    cp $FW_FILE $TFTP_SRV
+    if [ $? -eq 0 ] ; then
+        echo "Coppy file to tftp server OK"
+    fi
+}
+
+ARCHIVED_FILE=".archived"
+BUILTED_FILE=".built"
+INSTALLED_FILE=".installed"
+LICENSECHECKED_FILE=".licensechecked"
+PREARCHIVE_FILE=".prearchive"
+
+build_package_without_clean()
+{
+    cd "$BUILD_DIR/output/debug/$PK_NAME"
+    if [ -f $ARCHIVED_FILE ] || [ -f $BUILTED_FILE ] || [ -f $INSTALLED_FILE ] || [ -f $LICENSECHECKED_FILE ] || [ -f $PREARCHIVE_FILE ] ; then
+        echo "Start remove existed file"
+        rm -f $ARCHIVED_FILE $BUILTED_FILE $INSTALLED_FILE $LICENSECHECKED_FILE $PREARCHIVE_FILE
+        if [ $? -eq 0 ] ; then
+            echo "Remove tmp file successfull"
+        fi
+    fi
+    cd $BUILD_DIR
+    make $PK_NAME.all VERBOSE=1
+}
