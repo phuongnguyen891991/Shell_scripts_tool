@@ -11,7 +11,7 @@ void_usage()
     echo "-b    :Clean package, then build"
 }
 
-Search_fw_file()
+Coppy_fw_file()
 {
     if [ -z `$BUILD_DIR | grep "nodes"`] ; then 
         echo "Not build dir, please check again"
@@ -47,5 +47,15 @@ build_package_without_clean()
         fi
     fi
     cd $BUILD_DIR
-    make $PK_NAME.all VERBOSE=1
+    echo "`pwd`"
+    make ${PK_NAME}.all
 }
+
+build_package_with_clean()
+{
+    cd $BUILD_DIR
+    rm -rf "$BUILD_DIR/output/debug/$PK_NAME"
+    make "${PK_NAME}.all VERBOSE=1"
+}
+
+build_package_without_clean
